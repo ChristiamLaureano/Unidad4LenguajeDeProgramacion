@@ -1,5 +1,6 @@
 ﻿using ActividadTres.LenguajeProgrmacion;
 using System;
+using System.Data.Entity;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -9,6 +10,7 @@ namespace ActividadTres
 {
     public partial class Proveedores : Form
     {
+        // Usa SIEMPRE el mismo contexto del proyecto
         private readonly LenguajeProgrmacionEntities1 _context;
 
         public Proveedores()
@@ -28,41 +30,29 @@ namespace ActividadTres
             txtEliminar.Clear();
         }
 
-        // ====== UTILIDADES ======
         private void cargarDatos()
         {
             try
             {
                 var lista = _context.Set<ProveedorEntity>()
-                    .Select(p => new
-                    {
-                        ID = p.ProveedorID,
-                        Nombre = p.NombreProveedor,
-                        Telefono = p.Telefono,
-                        Correo = p.CorreoElectronico
-                    })
+                    .Select(p => new { ID = p.ProveedorID, Nombre = p.NombreProveedor, Telefono = p.Telefono, Correo = p.CorreoElectronico })
                     .OrderBy(x => x.ID)
                     .ToList();
 
                 dgProveedores.DataSource = lista;
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al cargar proveedores: " + ex.Message);
-            }
+            catch (Exception ex) { MostrarError(ex, "cargar proveedores"); }
         }
 
         private static bool EmailValido(string email)
         {
             if (string.IsNullOrWhiteSpace(email)) return false;
-            // Validación simple
             return Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
         }
 
         private void limpiarInsertar()
         {
-            // Si tu ID es IDENTITY, no uses txtProveedorID
-            if (txtProveedorID != null) txtProveedorID.Clear();
+            txtProveedorID?.Clear(); // ignorado si es IDENTITY
             txtNombreProveedor.Clear();
             txtTelefono.Clear();
             txtCorreoElectronico.Clear();
@@ -76,12 +66,20 @@ namespace ActividadTres
             txtCorreoElectronicoActualizar.Clear();
         }
 
-        // ====== BOTONES ======
+        // -------- Helpers de errores ----------
+        private void MostrarError(Exception ex, string accion)
+        {
+            string msg = "Error al " + accion + ":\n" + ex.Message;
+            var i = ex.InnerException;
+            while (i != null) { msg += "\n→ " + i.Message; i = i.InnerException; }
+            MessageBox.Show(msg, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        // -------- Botones ----------
         private void btnCargar_Click(object sender, EventArgs e) => cargarDatos();
 
         private void btnAgregar_Click(object sender, EventArgs e)
         {
-            // VALIDACIONES
             if (string.IsNullOrWhiteSpace(txtNombreProveedor.Text) ||
                 string.IsNullOrWhiteSpace(txtTelefono.Text) ||
                 string.IsNullOrWhiteSpace(txtCorreoElectronico.Text))
@@ -89,24 +87,17 @@ namespace ActividadTres
                 MessageBox.Show("Complete Nombre, Teléfono y Correo.");
                 return;
             }
-
             if (!EmailValido(txtCorreoElectronico.Text))
             {
-                MessageBox.Show("Correo no válido.");
-                return;
+                MessageBox.Show("Correo no válido."); return;
             }
 
-            // Crear entidad
             var proveedor = new ProveedorEntity
             {
                 NombreProveedor = txtNombreProveedor.Text.Trim(),
                 Telefono = txtTelefono.Text.Trim(),
                 CorreoElectronico = txtCorreoElectronico.Text.Trim()
             };
-
-            // ⚠️ Si tu ProveedorID NO es IDENTITY y lo escribes manual:
-            // if (!int.TryParse(txtProveedorID.Text, out int idManual)) { MessageBox.Show("ID inválido."); return; }
-            // proveedor.ProveedorID = idManual;
 
             try
             {
@@ -116,26 +107,16 @@ namespace ActividadTres
                 cargarDatos();
                 limpiarInsertar();
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al agregar: " + ex.Message);
-            }
+            catch (Exception ex) { MostrarError(ex, "agregar proveedor"); }
         }
 
         private void btnEliminar_Click(object sender, EventArgs e)
         {
             if (!int.TryParse(txtEliminar.Text, out int id))
-            {
-                MessageBox.Show("Debe introducir un ID válido.");
-                return;
-            }
+            { MessageBox.Show("ID inválido."); return; }
 
             var proveedor = _context.Set<ProveedorEntity>().FirstOrDefault(p => p.ProveedorID == id);
-            if (proveedor == null)
-            {
-                MessageBox.Show("Proveedor no encontrado.");
-                return;
-            }
+            if (proveedor == null) { MessageBox.Show("Proveedor no encontrado."); return; }
 
             if (MessageBox.Show("¿Eliminar este proveedor?", "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                 return;
@@ -150,7 +131,14 @@ namespace ActividadTres
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error al eliminar: " + ex.Message);
+                // Mensaje amigable si hay dependencias (FK)
+                var full = ex.ToString();
+                if (full.Contains("DELETE statement conflicted"))
+                {
+                    MessageBox.Show("No se puede eliminar: hay registros relacionados (Compras/Productos).", "Restricción de clave foránea", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                MostrarError(ex, "eliminar proveedor");
             }
         }
 
@@ -164,19 +152,13 @@ namespace ActividadTres
                 MessageBox.Show("Complete todos los campos correctamente.");
                 return;
             }
-
             if (!EmailValido(txtCorreoElectronicoActualizar.Text))
             {
-                MessageBox.Show("Correo no válido.");
-                return;
+                MessageBox.Show("Correo no válido."); return;
             }
 
             var proveedor = _context.Set<ProveedorEntity>().FirstOrDefault(p => p.ProveedorID == id);
-            if (proveedor == null)
-            {
-                MessageBox.Show("Proveedor no encontrado.");
-                return;
-            }
+            if (proveedor == null) { MessageBox.Show("Proveedor no encontrado."); return; }
 
             proveedor.NombreProveedor = txtProveedorActualizar.Text.Trim();
             proveedor.Telefono = txtTelefonoActualizar.Text.Trim();
@@ -189,13 +171,9 @@ namespace ActividadTres
                 cargarDatos();
                 limpiarActualizar();
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al actualizar: " + ex.Message);
-            }
+            catch (Exception ex) { MostrarError(ex, "actualizar proveedor"); }
         }
 
-        // ====== (Opcional) Autollenar desde la grilla ======
         private void dgProveedores_SelectionChanged(object sender, EventArgs e)
         {
             if (dgProveedores.CurrentRow?.DataBoundItem == null) return;
@@ -211,7 +189,7 @@ namespace ActividadTres
             txtTelefonoActualizar.Text = tel;
             txtCorreoElectronicoActualizar.Text = correo;
 
-            txtEliminar.Text = id; // práctico para borrar rápido
+            txtEliminar.Text = id;
         }
     }
 }
