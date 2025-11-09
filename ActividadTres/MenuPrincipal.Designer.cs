@@ -1,6 +1,6 @@
 ﻿namespace ActividadTres
 {
-    partial class MenuCostal
+    partial class MenuPrincipal
     {
         /// <summary>
         /// Required designer variable.
@@ -110,7 +110,7 @@
         #endregion
 
         private System.Windows.Forms.MenuStrip menuStrip1;
-        private System.Windows.Forms.ToolStripMenuItem menuCostalToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem MenuPrincipalToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem clientesToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem categoriasToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem proveedoresToolStripMenuItem;

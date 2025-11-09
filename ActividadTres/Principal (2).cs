@@ -11,9 +11,9 @@ using System.Windows.Forms;
 
 namespace ActividadTres
 {
-    public partial class MenuCostal : Form
+    public partial class Principal : Form
     {
-        public MenuCostal()
+        public Principal()
         {
             InitializeComponent();
         }
